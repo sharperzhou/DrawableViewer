@@ -52,7 +52,7 @@ namespace Sharper.GstarCAD.Extensions
             viewer.EraseAll();
             if (!(e.NewValue is Drawable drawable))
             {
-                viewer.Invalidate();
+                viewer.Regenerate();
                 return;
             }
 
@@ -71,7 +71,7 @@ namespace Sharper.GstarCAD.Extensions
             if (GetAutoZoomingWhenDrawableChanged(d))
                 viewer.ZoomExtents();
 
-            viewer.Invalidate();
+            viewer.Regenerate();
         }
 
         /// <summary>
@@ -102,6 +102,49 @@ namespace Sharper.GstarCAD.Extensions
                 return;
 
             viewer.CanMouseOperation = Equals(e.NewValue, true);
+        }
+
+        /// <summary>
+        /// 可绑定的外部源属性
+        /// </summary>
+        public static readonly DependencyProperty SourceProperty =
+            DependencyProperty.RegisterAttached("Source", typeof(object), 
+                typeof(DrawableViewerBehavior), new PropertyMetadata(OnSourceChanged));
+
+        /// <summary>
+        /// 响应外部源更改的事件处理器
+        /// </summary>
+        /// <param name="d">被绑定的 <see cref="WindowsFormsHost"/> 对象</param>
+        /// <param name="e">绑定事件参数</param>
+        /// <exception cref="NotSupportedException"></exception>
+        private static void OnSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+
+            if (!(d is WindowsFormsHost host) || !(host.Child is DrawableViewer viewer))
+                return;
+
+            if (e.Property != SourceProperty)
+                return;
+
+            switch (e.NewValue)
+            {
+                case null:
+                    viewer.Source = null;
+                    break;
+                case string dwgPath:
+                    viewer.Source = dwgPath;
+                    break;
+                case Database database:
+                    viewer.Database = database;
+                    break;
+                default:
+                    throw new NotSupportedException("无效的数据类型，只支持DWG文件路径或Database对象");
+            }
+
+            if (GetAutoZoomingWhenDrawableChanged(d))
+                viewer.ZoomExtents();
+
+            viewer.Regenerate();
         }
 
         /// <summary>
@@ -162,6 +205,26 @@ namespace Sharper.GstarCAD.Extensions
         public static bool GetCanMouseOperation(DependencyObject d)
         {
             return (bool)d.GetValue(CanMouseOperationProperty);
+        }
+
+        /// <summary>
+        /// 设置显示源
+        /// </summary>
+        /// <param name="d">被绑定的 <see cref="WindowsFormsHost"/> 对象</param>
+        /// <param name="source">DWG路径或Database对象</param>
+        public static void SetSource(DependencyObject d, object source)
+        {
+            d.SetValue(SourceProperty, source);
+        }
+
+        /// <summary>
+        /// 获取显示源
+        /// </summary>
+        /// <param name="d">被绑定的 <see cref="WindowsFormsHost"/> 对象</param>
+        /// <returns>DWG路径或Database对象</returns>
+        public static object GetSource(DependencyObject d)
+        {
+            return d.GetValue(SourceProperty);
         }
     }
 }

@@ -27,6 +27,7 @@ namespace DrawableViewer.Test
 
             button1.Click += Button1_Click;
             button2.Click += Button2_Click;
+            button3.Click += Button3_Click;
         }
 
         protected override void OnClosed(EventArgs e)
@@ -43,7 +44,7 @@ namespace DrawableViewer.Test
             var currentSpace = (BlockTableRecord)trans.GetObject(doc.Database.CurrentSpaceId, OpenMode.ForRead);
             viewer1.Add(currentSpace);
             viewer1.ZoomExtents();
-            viewer1.Invalidate();
+            viewer1.Regenerate();
         }
 
         private void Button1_Click(object sender, EventArgs e)
@@ -52,7 +53,18 @@ namespace DrawableViewer.Test
 
             viewer1.Add(_circle);
             viewer1.ZoomExtents();
-            viewer1.Invalidate();
+            viewer1.Regenerate();
+        }
+
+        private void Button3_Click(object sender, EventArgs e)
+        {
+            var dlg = new OpenFileDialog { Filter = "图纸文件(*.dwg)|*.dwg" };
+            if (dlg.ShowDialog() != DialogResult.OK)
+                return;
+
+            viewer1.Source = dlg.FileName;
+            viewer1.ZoomExtents();
+            viewer1.Regenerate();
         }
     }
 }

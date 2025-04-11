@@ -67,6 +67,11 @@ namespace Sharper.GstarCAD.Extensions
         private Point _lastPoint;
 
         /// <summary>
+        /// 是否按下了鼠标左键
+        /// </summary>
+        private bool _isMousePressed;
+
+        /// <summary>
         /// 控件能否响应鼠标操作
         /// </summary>
         public bool CanMouseOperation { get; set; } = true;
@@ -75,6 +80,12 @@ namespace Sharper.GstarCAD.Extensions
         /// 鼠标滚轮缩放比例，放大则为<code>1+<see cref="MouseZoomDelta"/></code>，缩小则为<code>1-<see cref="MouseZoomDelta"/></code>
         /// </summary>
         private const double MouseZoomDelta = 0.1;
+
+        /// <summary>
+        /// 内部数据库对象
+        /// </summary>
+        /// <remarks>如果加载了外部DWG文件，则将外部图纸对象存放在内部数据库</remarks>
+        private Database _database;
 
         /// <summary>
         /// 默认构造器，对绘图系统的模型、设备和视图进行初始化
@@ -179,9 +190,63 @@ namespace Sharper.GstarCAD.Extensions
         }
 
         /// <summary>
+        /// 重新生成View
+        /// </summary>
+        public void Regenerate()
+        {
+            _view.Invalidate();
+            _view.Update();
+        }
+
+        /// <summary>
         /// 可视化图形的包围盒
         /// </summary>
         public Extents3d Extents => _extents;
+
+        /// <summary>
+        /// 是否来源于外部DWG文件
+        /// </summary>
+        public bool IsFromSource { get; private set; }
+
+        /// <summary>
+        /// 外部DWG文件路径
+        /// </summary>
+        public string Source
+        {
+            get => !IsFromSource || _database == null ? null : _database.Filename;
+            set
+            {
+                DeleteDatabase();
+                if (!string.IsNullOrEmpty(value))
+                {
+                    _database = new Database(false, true);
+                    IsFromSource = true;
+                    _database.ReadDwgFile(value, FileOpenMode.OpenForReadAndAllShare, true, null);
+                }
+
+                AddModelSpace();
+            }
+        }
+
+        /// <summary>
+        /// 外部数据库对象
+        /// </summary>
+        public Database Database
+        {
+            get => _database;
+            set
+            {
+                if (value != null && value.IsDisposed)
+                    throw new ArgumentNullException(nameof(value), "Source database was disposed");
+
+                if (_database == value)
+                    return;
+
+                DeleteDatabase();
+                _database = value;
+                AddModelSpace();
+            }
+        }
 
         /// <inheritdoc />
         protected override void Dispose(bool disposing)
@@ -193,6 +258,7 @@ namespace Sharper.GstarCAD.Extensions
                 _model.Dispose();
                 _device.Dispose();
                 _extents = new Extents3d();
+                DeleteDatabase();
             }
 
             base.Dispose(disposing);
@@ -201,8 +267,7 @@ namespace Sharper.GstarCAD.Extensions
         /// <inheritdoc />
         protected override void OnPaint(PaintEventArgs e)
         {
-            _view.Invalidate();
-            _view.Update();
+            Regenerate();
             base.OnPaint(e);
         }
 
@@ -219,19 +284,24 @@ namespace Sharper.GstarCAD.Extensions
         }
 
         /// <inheritdoc />
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+            if (e.Button != MouseButtons.Left)
+                return;
+
+            _isMousePressed = true;
+        }
+
+        /// <inheritdoc />
         protected override void OnMouseUp(MouseEventArgs e)
         {
             base.OnMouseUp(e);
-            if (!CanMouseOperation)
-                return;
-            if (e.Button != MouseButtons.Right || !ClientRectangle.Contains(e.Location))
+            if (e.Button != MouseButtons.Left)
                 return;
 
-            ZoomExtents();
-            _view.Invalidate();
-            _view.Update();
+            _isMousePressed = false;
         }
-
 
         /// <inheritdoc />
         protected override void OnMouseMove(MouseEventArgs e)
@@ -244,13 +314,11 @@ namespace Sharper.GstarCAD.Extensions
             {
                 case MouseButtons.Middle:
                     PanView(e.Location);
-                    _view.Invalidate();
-                    _view.Update();
+                    Regenerate();
                     break;
-                case MouseButtons.Left:
+                case MouseButtons.Left when _isMousePressed:
                     OrbitView(e.Location);
-                    _view.Invalidate();
-                    _view.Update();
+                    Regenerate();
                     break;
             }
 
@@ -265,8 +333,21 @@ namespace Sharper.GstarCAD.Extensions
                 return;
 
             _view.Zoom(e.Delta > 0 ? 1 + MouseZoomDelta : 1 - MouseZoomDelta);
-            _view.Invalidate();
-            _view.Update();
+            Regenerate();
+        }
+
+        /// <inheritdoc />
+        protected override void OnMouseDoubleClick(MouseEventArgs e)
+        {
+            base.OnMouseDoubleClick(e);
+            if (!CanMouseOperation)
+                return;
+
+            if (e.Button != MouseButtons.Middle)
+                return;
+
+            ZoomExtents();
+            Regenerate();
         }
 
         /// <summary>
@@ -347,6 +428,38 @@ namespace Sharper.GstarCAD.Extensions
             }
 
             return vector;
+        }
+
+        /// <summary>
+        /// 删除内部数据库
+        /// </summary>
+        private void DeleteDatabase()
+        {
+            if (!IsFromSource || _database == null)
+                return;
+
+            _database.Dispose();
+            _database = null;
+            IsFromSource = false;
+        }
+
+        /// <summary>
+        /// 将数据库的模型空间添加至视图
+        /// </summary>
+        private void AddModelSpace()
+        {
+            EraseAll();
+
+            if (_database == null)
+                return;
+
+            using (_database.TransactionManager.StartTransaction())
+            {
+                var modalSpaceId = SymbolUtilityServices.GetBlockModelSpaceId(_database);
+                var modalSpace = (BlockTableRecord)modalSpaceId.GetObject(OpenMode.ForRead);
+
+                Add(modalSpace);
+            }
         }
     }
 }

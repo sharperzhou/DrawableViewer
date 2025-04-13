@@ -52,7 +52,7 @@ namespace DrawableViewer.Test
             {
                 var database = Application.DocumentManager.MdiActiveDocument.Database;
                 using (database.TransactionManager.StartTransaction())
-                using (var viewModel = new ViewModel())
+                using (var viewModel = new WpfViewerViewModel())
                 {
                     var window = new WpfViewer
                     {
@@ -60,6 +60,36 @@ namespace DrawableViewer.Test
                         ShowInTaskbar = false,
                         DataContext = viewModel
                     };
+                    Application.ShowModalWindow(Application.MainWindow.Handle, window, false);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Application.ShowAlertDialog(ex.Message);
+            }
+        }
+
+
+        [CommandMethod(nameof(TestHostedViewer)
+#if DEBUG
+            , CommandFlags.Session
+#endif
+        )]
+        public static void TestHostedViewer()
+        {
+            
+            try
+            {
+                var database = Application.DocumentManager.MdiActiveDocument.Database;
+                using (database.TransactionManager.StartTransaction())
+                using (var viewModel = new HostedViewerViewModel())
+                using (var window = new HostedViewer
+                       {
+                           WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                           ShowInTaskbar = false,
+                           DataContext = viewModel
+                       })
+                {
                     Application.ShowModalWindow(Application.MainWindow.Handle, window, false);
                 }
             }

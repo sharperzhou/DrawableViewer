@@ -1,8 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
+
+using Microsoft.Win32;
 
 #if AUTOCAD2015_TO_2024
 using Autodesk.AutoCAD.DatabaseServices;
@@ -21,27 +21,36 @@ using GrxCAD.GraphicsInterface;
 using Application = GrxCAD.ApplicationServices.Application;
 #endif
 
+
 namespace DrawableViewer.Test
 {
-    public class ViewModel : INotifyPropertyChanged, IDisposable
+    public class HostedViewerViewModel : ViewModelBase, IDisposable
     {
-        private Drawable _drawable;
+        private readonly Circle _circle = new Circle(new Point3d(100, 100, 0), Vector3d.ZAxis, 100);
 
-        public Drawable Drawable
+        private readonly BlockTableRecord _currentSpace;
+
+        private object _source;
+
+        public HostedViewerViewModel()
         {
-            get => _drawable;
-            set => SetProperty(ref _drawable, value, nameof(Drawable));
+            _currentSpace = GetCurrentSpace();
         }
+
+        public object Source
+        {
+            get => _source;
+            set => SetProperty(ref _source, value, nameof(Source));
+        }
+
 
         private ICommand _drawCircleCommand;
 
         public ICommand DrawCircleCommand => _drawCircleCommand ?? (_drawCircleCommand = new DelegateCommand(() =>
         {
-            Dispose();
-
             try
             {
-                Drawable = new Circle(Point3d.Origin, Vector3d.ZAxis, 100);
+                Source = _circle;
             }
             catch (Exception ex)
             {
@@ -54,14 +63,28 @@ namespace DrawableViewer.Test
         public ICommand DrawCurrentSpaceCommand =>
             _drawCurrentSpaceCommand ?? (_drawCurrentSpaceCommand = new DelegateCommand(() =>
             {
-                Dispose();
-
-                var database = Application.DocumentManager.MdiActiveDocument.Database;
-                var trans = database.TransactionManager.TopTransaction;
-                var currentSpace = (BlockTableRecord)trans.GetObject(database.CurrentSpaceId, OpenMode.ForRead);
                 try
                 {
-                    Drawable = currentSpace;
+                    Source = _currentSpace;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message);
+                }
+            }));
+
+        private ICommand _drawExternalDwgCommand;
+
+        public ICommand DrawExternalDwgCommand =>
+            _drawExternalDwgCommand ?? (_drawExternalDwgCommand = new DelegateCommand(() =>
+            {
+                try
+                {
+                    string path = PromptGetDwgPath();
+                    if (string.IsNullOrEmpty(path))
+                        return;
+                    
+                    Source = path;
                 }
                 catch (Exception ex)
                 {
@@ -73,31 +96,26 @@ namespace DrawableViewer.Test
 
         public ICommand ClearCommand => _clearCommand ?? (_clearCommand = new DelegateCommand(() =>
         {
-            Dispose();
-            Drawable = null;
+            Source = null;
         }));
 
         public void Dispose()
         {
-            if (Drawable != null && Drawable.AutoDelete)
-            {
-                Drawable.Dispose();
-            }
+            _circle.Dispose();
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        private void OnPropertyChanged(string propertyName)
+        private static BlockTableRecord GetCurrentSpace()
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            var database = Application.DocumentManager.MdiActiveDocument.Database;
+            var currentSpace = (BlockTableRecord)database.CurrentSpaceId.GetObject(OpenMode.ForRead);
+
+            return currentSpace;
         }
 
-        private bool SetProperty<T>(ref T field, T value, string propertyName)
+        private static string PromptGetDwgPath()
         {
-            if (EqualityComparer<T>.Default.Equals(field, value)) return false;
-            field = value;
-            OnPropertyChanged(propertyName);
-            return true;
+            var dlg = new OpenFileDialog { Filter = "图纸文件(*.dwg)|*.dwg" };
+            return dlg.ShowDialog() != true ? null : dlg.FileName;
         }
     }
 }

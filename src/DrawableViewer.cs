@@ -72,6 +72,16 @@ namespace Sharper.GstarCAD.Extensions
         private bool _isMousePressed;
 
         /// <summary>
+        /// 是否为Windows 7及以下版本的操作系统
+        /// </summary>
+        private static readonly bool LessThanOrEqualWindows7 = Environment.OSVersion.Version < new Version(6, 2);
+
+        /// <summary>
+        /// 鼠标移入控件前，上一个选中的控件
+        /// </summary>
+        private Control _lastSelectedControl;
+
+        /// <summary>
         /// 控件能否响应鼠标操作
         /// </summary>
         public bool CanMouseOperation { get; set; } = true;
@@ -157,6 +167,7 @@ namespace Sharper.GstarCAD.Extensions
         /// </summary>
         public void EraseAll()
         {
+            DeleteDatabase();
             _view.EraseAll();
             _view.Invalidate();
 
@@ -216,7 +227,7 @@ namespace Sharper.GstarCAD.Extensions
             get => !IsFromSource || _database == null ? null : _database.Filename;
             set
             {
-                DeleteDatabase();
+                EraseAll();
                 if (!string.IsNullOrEmpty(value))
                 {
                     _database = new Database(false, true);
@@ -236,13 +247,13 @@ namespace Sharper.GstarCAD.Extensions
             get => _database;
             set
             {
-                if (value != null && value.IsDisposed)
-                    throw new ArgumentNullException(nameof(value), "Source database was disposed");
-
                 if (_database == value)
                     return;
 
-                DeleteDatabase();
+                EraseAll();
+                if (value != null && value.IsDisposed)
+                    throw new ArgumentNullException(nameof(value), "Source database was disposed");
+                
                 _database = value;
                 AddModelSpace();
             }
@@ -251,6 +262,9 @@ namespace Sharper.GstarCAD.Extensions
         /// <inheritdoc />
         protected override void Dispose(bool disposing)
         {
+            if (IsDisposed)
+                return;
+
             if (disposing)
             {
                 _device.Erase(_view);
@@ -332,6 +346,9 @@ namespace Sharper.GstarCAD.Extensions
             if (!CanMouseOperation)
                 return;
 
+            if (LessThanOrEqualWindows7 && !ClientRectangle.Contains(e.Location))
+                return;
+
             _view.Zoom(e.Delta > 0 ? 1 + MouseZoomDelta : 1 - MouseZoomDelta);
             Regenerate();
         }
@@ -348,6 +365,28 @@ namespace Sharper.GstarCAD.Extensions
 
             ZoomExtents();
             Regenerate();
+        }
+
+        /// <inheritdoc />
+        protected override void OnMouseEnter(EventArgs e)
+        {
+            base.OnMouseEnter(e);
+            if (!LessThanOrEqualWindows7)
+                return;
+
+            var containerControl = GetContainerControl();
+            _lastSelectedControl = containerControl?.ActiveControl;
+            Focus();
+        }
+
+        /// <inheritdoc />
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            base.OnMouseLeave(e);
+            if (!LessThanOrEqualWindows7)
+                return;
+
+            _lastSelectedControl?.Select();
         }
 
         /// <summary>
@@ -436,7 +475,10 @@ namespace Sharper.GstarCAD.Extensions
         private void DeleteDatabase()
         {
             if (!IsFromSource || _database == null)
+            {
+                _database = null;
                 return;
+            }
 
             _database.Dispose();
             _database = null;
@@ -448,9 +490,7 @@ namespace Sharper.GstarCAD.Extensions
         /// </summary>
         private void AddModelSpace()
         {
-            EraseAll();
-
-            if (_database == null)
+            if (_database == null || _database.IsDisposed)
                 return;
 
             using (_database.TransactionManager.StartTransaction())

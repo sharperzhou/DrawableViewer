@@ -6,7 +6,7 @@
         xmlns:dv="http://shaprer.gstarcad.extensions/xaml"
         xmlns:local="clr-namespace:DrawableViewer.Test"
         mc:Ignorable="d"
-        d:DataContext="{d:DesignInstance local:ViewModel}"
+        d:DataContext="{d:DesignInstance local:WpfViewerViewModel}"
         Title="WpfViewer" Height="450" Width="800" Closed="OnClosed">
     <Grid>
         <Grid.ColumnDefinitions>

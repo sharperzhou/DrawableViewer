@@ -179,6 +179,11 @@ namespace Sharper.GstarCAD.Extensions
         /// </summary>
         public void ZoomExtents()
         {
+            if (_database != null)
+            {
+                _database.UpdateExt(false);
+                _extents = new Extents3d(_database.Extmin, _database.Extmax);
+            }
             var center = _extents.GetCenter();
             double width = _extents.MaxPoint.X - _extents.MinPoint.X;
             double height = _extents.MaxPoint.Y - _extents.MinPoint.Y;
@@ -206,6 +211,7 @@ namespace Sharper.GstarCAD.Extensions
         public void Regenerate()
         {
             _view.Invalidate();
+            _view.InvalidateCachedViewportGeometry();
             _view.Update();
         }
 
@@ -253,7 +259,7 @@ namespace Sharper.GstarCAD.Extensions
                 EraseAll();
                 if (value != null && value.IsDisposed)
                     throw new ArgumentNullException(nameof(value), "Source database was disposed");
-                
+
                 _database = value;
                 AddModelSpace();
             }

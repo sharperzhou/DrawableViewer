@@ -7,7 +7,6 @@
   </PropertyGroup>
     
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
-    <DocumentationFile>$(OutputPath)/$(TargetFramework)/$(AssemblyName).xml</DocumentationFile>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <IncludeSymbols>true</IncludeSymbols>
   </PropertyGroup>
@@ -18,7 +17,8 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(CADVersion)' == 'GstarCAD2024To2025'">
-    <PackageReference Include="GstarCADNET" Version="[24,26)" ExcludeAssets="runtime" />
+    <PackageReference Condition="'$(TargetFramework)' == 'net48'" Include="GstarCADNET" Version="[24,26)" ExcludeAssets="runtime" />
+    <PackageReference Condition="'$(TargetFramework)' == 'net8.0-windows'" Include="GstarCADNET" Version="[26,)" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(CADVersion)' == 'AutoCAD2015To2024'">

@@ -8,9 +8,9 @@
     <FileVersion>2023.5</FileVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(CADVersion)' == 'GstarCAD2024To2025'">
-    <TargetFrameworks>net48</TargetFrameworks>
+    <TargetFrameworks>net48;net8.0-windows</TargetFrameworks>
     <DefineConstants>$(DefineConstants);GSTARCAD2024_TO_2025</DefineConstants>
-    <FileVersion>2025.3</FileVersion>
+    <FileVersion>2026.0</FileVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(CADVersion)' == 'AutoCAD2015To2024'">
     <TargetFrameworks>net48</TargetFrameworks>
@@ -23,7 +23,7 @@
     <OutputPath>$(SolutionDir)out\$(Configuration)</OutputPath>
     <ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>None</ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>
     <Authors>Sharper</Authors>
-    <Version>2.1.0.0</Version>
+    <Version>3.0.0.0</Version>
     <AssemblyVersion>$(Version)</AssemblyVersion>
     <PackageVersion>$(FileVersion)</PackageVersion>
     <Title>CAD Drawable Object Viewer Library</Title>
